@@ -7,9 +7,9 @@ spring:
     name: rabbitmq-provider
   #配置rabbitMq 服务器
   rabbitmq:
-    host: 127.0.0.1
+    host: 192.168.0.11
     port: 5672
-    username: root
-    password: root
+    username: admin
+    password: admin
     #虚拟host 可以不设置,使用server默认host
-    virtual-host: JCcccHost
+    virtual-host: my_vhost
