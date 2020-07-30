@@ -15,7 +15,7 @@ public class MyTest {
 
     @Test
     public void myTest() throws Exception {
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10000; i++) {
             String messageId = "hello world "+ i;
             // 将消息携带绑定键值：TestDirectRouting 发送到交换机TestDirectExchange
             rabbitTemplate.convertAndSend("TestDirectExchange", "TestDirectRouting", messageId);
