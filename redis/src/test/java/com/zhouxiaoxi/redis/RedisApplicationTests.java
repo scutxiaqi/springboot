@@ -1,7 +1,9 @@
 package com.zhouxiaoxi.redis;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,7 +29,8 @@ public class RedisApplicationTests {
     }
     
     public void string() {
-        redisTemplate.opsForValue().increment("xiaqi:userNum");
+        //redisTemplate.opsForValue().increment("xiaqi:userNum");
+        redisTemplate.opsForValue().setIfAbsent("xiaqi:hah", 22,Duration.ofSeconds(60));
     }
     
     /**
