@@ -1,0 +1,1 @@
+UPDATE b_goods_history SET mtime=NOW(), goods_short_name='love' WHERE goods_id='8888888999999';
