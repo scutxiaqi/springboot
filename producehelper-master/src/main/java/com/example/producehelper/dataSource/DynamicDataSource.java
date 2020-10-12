@@ -14,7 +14,7 @@ public class DynamicDataSource extends AbstractRoutingDataSource {
     public DynamicDataSource(DataSource defaultDataSource, Map<Object, Object> targetDataSourceMap) {
         super.setDefaultTargetDataSource(defaultDataSource);
         super.setTargetDataSources(targetDataSourceMap);
-        super.afterPropertiesSet();
+        super.afterPropertiesSet();// 初始化bean的时候执行, AbstractRoutingDataSource实现了InitializingBean接口
     }
 
     @Override

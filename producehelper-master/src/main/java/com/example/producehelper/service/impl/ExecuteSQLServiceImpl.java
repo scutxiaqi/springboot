@@ -7,11 +7,17 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.ibatis.jdbc.ScriptRunner;
+import org.apache.ibatis.jdbc.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,7 +43,58 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
 
     @Autowired
     @Qualifier("stations")
-    private Set<StationDataSource> stationDataSourceList;
+    private Set<StationDataSource> stationDataSource;
+
+    public void runSql() throws Exception {
+        Set<String> stationIds = new HashSet<>();
+        for (StationDataSource stationDataSource : stationDataSource) {
+            stationIds.add(stationDataSource.getStationId());
+        }
+        executeSqlOnStation(stationIds, "sql/run.sql");
+    }
+    
+    public void runSql(String sql) {
+        Set<String> stationIds = new HashSet<>();
+        for (StationDataSource stationDataSource : stationDataSource) {
+            stationIds.add(stationDataSource.getStationId());
+        }
+        executeSql(sql, stationIds);
+    }
+
+    public void runSql(String... stationIds) throws Exception {
+        executeSqlOnStation(Arrays.asList(stationIds), "sql/run.sql");
+    }
+
+    public void runSql(String sql, String... stationIds) {
+        executeSql(sql, Arrays.asList(stationIds));
+    }
+    
+    private void executeSql(String sql, Collection<String> stationIds) {
+        Set<String> result = new HashSet<String>();
+        List<String> failList = new ArrayList<String>();
+        for (String item : stationIds) {
+            DynamicDataSource.setDataSourceKey(item);
+            // 获取数据库链接
+            Connection connection = null;
+            SqlRunner runner = null;
+            try {
+                connection = dynamicDataSource.getConnection();
+                runner = new SqlRunner(connection);
+                List<Map<String, Object>> list = runner.selectAll(sql);
+                for (Map<String, Object> map : list) {
+                    map.values().forEach(xx -> result.add((String) xx));
+                }
+                System.out.println(item + "成功！");
+            } catch (Exception e) {
+                e.printStackTrace();
+                failList.add(item);
+            } finally {
+                runner.closeConnection();
+            }
+        }
+        System.out.println(failList);
+        System.out.println(result);
+    }
 
     @Override
     public String runSql(StationSelected stationSelected) throws Exception {
@@ -76,7 +133,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         String allSelected = stationSelected.getSelected();
         if ("all".equals(allSelected)) {
             stationIds = new LinkedHashSet<>(0);
-            for (StationDataSource stationDataSource : stationDataSourceList) {
+            for (StationDataSource stationDataSource : stationDataSource) {
                 stationIds.add(stationDataSource.getStationId());
             }
         } else {
@@ -114,7 +171,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
                  */
                 runner.setStopOnError(true);
                 // 设置是否输出日志，不设置自动将日志输出到控制台.参数为null表示不输出日志，
-                // runner.setLogWriter(writer);
+                 runner.setLogWriter(writer);
                 runner.setErrorLogWriter(writer);
                 // writer.println("-----------------" + stationId + "执行开始-----------------");
                 runner.runScript(new InputStreamReader(sqlResource.getInputStream(), "UTF-8"));
