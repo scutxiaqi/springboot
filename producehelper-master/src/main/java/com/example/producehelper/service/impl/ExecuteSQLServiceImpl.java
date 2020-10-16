@@ -5,11 +5,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -53,7 +55,11 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         executeSqlOnStation(stationIds, "sql/run.sql");
     }
     
-    public void runSql(String sql) {
+    public void runSql(String[] stationIds) throws Exception {
+        executeSqlOnStation(Arrays.asList(stationIds), "sql/run.sql");
+    }
+    
+    public void runSql(String sql)  throws Exception{
         Set<String> stationIds = new HashSet<>();
         for (StationDataSource stationDataSource : stationDataSource) {
             stationIds.add(stationDataSource.getStationId());
@@ -61,15 +67,11 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         executeSql(sql, stationIds);
     }
 
-    public void runSql(String... stationIds) throws Exception {
-        executeSqlOnStation(Arrays.asList(stationIds), "sql/run.sql");
-    }
-
-    public void runSql(String sql, String... stationIds) {
+    public void runSql(String sql, String[] stationIds) throws Exception{
         executeSql(sql, Arrays.asList(stationIds));
     }
     
-    private void executeSql(String sql, Collection<String> stationIds) {
+    private void executeSql(String sql, Collection<String> stationIds) throws IOException, SQLException {
         Set<String> result = new HashSet<String>();
         List<String> failList = new ArrayList<String>();
         for (String item : stationIds) {
@@ -80,20 +82,51 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
             try {
                 connection = dynamicDataSource.getConnection();
                 runner = new SqlRunner(connection);
-                List<Map<String, Object>> list = runner.selectAll(sql);
-                for (Map<String, Object> map : list) {
-                    map.values().forEach(xx -> result.add((String) xx));
+                Map<String, Integer> stockMap = getStock(runner);
+                Map<String, Integer> orderMap = getOrder(runner);
+                String updateSql = "UPDATE b_goods_stock SET muser='xiaqi', mtime=NOW(), goods_count=? WHERE goods_id=?";
+                for (String goodsId : stockMap.keySet()) {
+                    Integer orderCount = orderMap.get(goodsId);
+                    if (orderCount == null) {
+                        continue;
+                    }
+                    Integer oldCount = stockMap.get(goodsId);
+                    Integer newCount = oldCount - orderCount;
+                    runner.update(sql, goodsId, oldCount, newCount, orderCount);
+                    runner.update(updateSql, newCount, goodsId);
                 }
-                System.out.println(item + "成功！");
             } catch (Exception e) {
                 e.printStackTrace();
-                failList.add(item);
+                if (connection != null) {
+                    connection.rollback();
+                }
             } finally {
                 runner.closeConnection();
             }
         }
         System.out.println(failList);
         System.out.println(result);
+    }
+    
+    private Map<String, Integer> getOrder(SqlRunner runner) throws SQLException {
+        Map<String, Integer> map = new HashMap<String, Integer>();
+        String sql = "SELECT goods_id,SUM(sale_count) AS sale_count FROM c_order_goods WHERE sub_order_status in ('1','2') GROUP BY goods_id";
+        List<Map<String, Object>> list = runner.selectAll(sql);
+        for (Map<String, Object> item : list) {
+            BigDecimal count = (BigDecimal) item.get("SALE_COUNT");
+            map.put((String) item.get("GOODS_ID"), count.intValue());
+        }
+        return map;
+    }
+    
+    private Map<String, Integer> getStock(SqlRunner runner) throws SQLException {
+        Map<String, Integer> map = new HashMap<String, Integer>();
+        String sql = "select * from b_goods_stock";
+        List<Map<String, Object>> list = runner.selectAll(sql);
+        for (Map<String, Object> item : list) {
+            map.put((String) item.get("GOODS_ID"), (Integer) item.get("GOODS_COUNT"));
+        }
+        return map;
     }
 
     @Override

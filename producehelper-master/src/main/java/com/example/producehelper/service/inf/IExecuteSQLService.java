@@ -7,9 +7,9 @@ public interface IExecuteSQLService {
 
     String init(StationSelected stationSelected) throws Exception;
     
-    void runSql(String... stationIds) throws Exception;
+    void runSql(String[] stationIds) throws Exception;
 
-    void runSql(String sql, String... stationIds) throws Exception;
+    void runSql(String sql, String[] stationIds) throws Exception;
     
     void runSql(String sql) throws Exception;
     
