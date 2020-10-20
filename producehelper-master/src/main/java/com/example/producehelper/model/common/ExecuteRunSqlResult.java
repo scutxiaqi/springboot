@@ -7,7 +7,7 @@ import java.util.Map;
 public class ExecuteRunSqlResult implements Serializable {
     private static final long serialVersionUID = -2227971786141855341L;
 
-    private static final Map<String, Boolean> result = new HashMap<>(0);
+    public static final Map<String, Boolean> result = new HashMap<>(0);
 
     public static Boolean getExecuteResult(String stationId) {
         return result.get(stationId);

@@ -9,9 +9,9 @@ public interface IExecuteSQLService {
     
     void runSql(String[] stationIds) throws Exception;
 
-    void runSql(String sql, String[] stationIds) throws Exception;
+    void myRunSql(String sql, String[] stationIds) throws Exception;
     
-    void runSql(String sql) throws Exception;
+    void myRunSql(String sql) throws Exception;
     
     void runSql() throws Exception;
 }

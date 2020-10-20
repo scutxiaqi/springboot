@@ -1,6 +1,7 @@
 package com.example.producehelper.service.impl;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -28,11 +29,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.producehelper.dataSource.DynamicDataSource;
+import com.example.producehelper.model.GoodsStockRecord;
 import com.example.producehelper.model.StationDataSource;
 import com.example.producehelper.model.StationSelected;
 import com.example.producehelper.model.common.Constants;
 import com.example.producehelper.model.common.ExecuteRunSqlResult;
 import com.example.producehelper.service.inf.IExecuteSQLService;
+
+import cn.afterturn.easypoi.excel.ExcelImportUtil;
+import cn.afterturn.easypoi.excel.entity.ImportParams;
 
 @Service
 @Transactional(rollbackFor = Exception.class)
@@ -59,7 +64,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         executeSqlOnStation(Arrays.asList(stationIds), "sql/run.sql");
     }
     
-    public void runSql(String sql)  throws Exception{
+    public void myRunSql(String sql)  throws Exception{
         Set<String> stationIds = new HashSet<>();
         for (StationDataSource stationDataSource : stationDataSource) {
             stationIds.add(stationDataSource.getStationId());
@@ -67,13 +72,14 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         executeSql(sql, stationIds);
     }
 
-    public void runSql(String sql, String[] stationIds) throws Exception{
+    public void myRunSql(String sql, String[] stationIds) throws Exception{
         executeSql(sql, Arrays.asList(stationIds));
     }
     
-    private void executeSql(String sql, Collection<String> stationIds) throws IOException, SQLException {
+    private void executeSql(String sql, Collection<String> stationIds) throws Exception {
         Set<String> result = new HashSet<String>();
         List<String> failList = new ArrayList<String>();
+        Map<String, BigDecimal> map = getPrice();
         for (String item : stationIds) {
             DynamicDataSource.setDataSourceKey(item);
             // 获取数据库链接
@@ -82,30 +88,87 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
             try {
                 connection = dynamicDataSource.getConnection();
                 runner = new SqlRunner(connection);
-                Map<String, Integer> stockMap = getStock(runner);
-                Map<String, Integer> orderMap = getOrder(runner);
-                String updateSql = "UPDATE b_goods_stock SET muser='xiaqi', mtime=NOW(), goods_count=? WHERE goods_id=?";
-                for (String goodsId : stockMap.keySet()) {
-                    Integer orderCount = orderMap.get(goodsId);
-                    if (orderCount == null) {
-                        continue;
-                    }
-                    Integer oldCount = stockMap.get(goodsId);
-                    Integer newCount = oldCount - orderCount;
-                    runner.update(sql, goodsId, oldCount, newCount, orderCount);
-                    runner.update(updateSql, newCount, goodsId);
-                }
+                exe1019(runner);
             } catch (Exception e) {
                 e.printStackTrace();
                 if (connection != null) {
                     connection.rollback();
                 }
+                failList.add(item);
             } finally {
                 runner.closeConnection();
             }
         }
-        System.out.println(failList);
+        System.out.println("失败站点：" + failList);
         System.out.println(result);
+        System.out.println(result.size());
+    }
+    
+    private void ddd(SqlRunner runner, Map<String, BigDecimal> priceMap) throws SQLException {
+        String sql = "SELECT goods_id FROM b_goods_stock_daily_statistics WHERE transfer_avg_price=0 AND statistics_date = (SELECT max(statistics_date) FROM b_goods_stock_daily_statistics)";
+        List<Map<String, Object>> list = runner.selectAll(sql);
+        sql = "UPDATE b_goods_stock_daily_statistics a, (SELECT max(statistics_date) AS statistics_date FROM b_goods_stock_daily_statistics) b \n" + 
+                "SET a.muser='xiaqi', a.mtime=NOW(), a.transfer_avg_price=? \n" + 
+                "WHERE a.transfer_avg_price=0 AND a.statistics_date=b.statistics_date AND a.goods_id=?";
+        for(Map<String, Object> map : list) {
+            for(Object item : map.values()) {
+                String goodsId = (String) item;
+                BigDecimal price = priceMap.get(goodsId);
+                if(price == null) {
+                    continue;
+                }
+                runner.update(sql, price, goodsId);
+            }
+        }
+    }
+    
+    private Map<String, BigDecimal> getPrice() throws Exception {
+        File file = new File("C:\\Users\\123456\\Desktop\\111.xlsx");
+        ImportParams params = new ImportParams();
+        params.setTitleRows(0);
+        params.setHeadRows(1);
+        List<GoodsStockRecord> list = ExcelImportUtil.importExcel(new FileInputStream(file), GoodsStockRecord.class, params);
+        Map<String, BigDecimal> map = new HashMap<>();
+        for(GoodsStockRecord item : list) {
+            map.put(item.getGoodsId(), item.getPrice());
+        }
+        return map;
+    }
+    
+    private void exe1019(SqlRunner runner) throws SQLException {
+        String sql = "INSERT INTO b_goods_stock_record(ctime,mtime,cuser,muser,goods_id,goods_count_old,goods_count_now,stock_record_count,stock_record_type,employee_id,remark)\n"
+                + " VALUES (NOW(), NOW(), 'xiaqi', 'xiaqi', ?, ?, ?, ?, ?, 'xiaqi', '站点非能切换')";
+        //clear(runner, sql);
+        sale(runner, sql);
+    }
+    
+    private void clear(SqlRunner runner, String sql) throws SQLException {
+        Map<String, Integer> stockMap = getStock(runner);
+        for (String goodsId : stockMap.keySet()) {
+            Integer oldCount = stockMap.get(goodsId);
+            if(oldCount == 0) {
+                continue;
+            }
+            runner.insert(sql, goodsId, oldCount, 0, -oldCount, "2");
+        }
+        sql = "UPDATE b_goods_stock SET muser='xiaqi', mtime=NOW(), goods_count=0 where goods_count<>0";
+        runner.update(sql);
+    }
+    
+    private void sale(SqlRunner runner, String sql) throws SQLException {
+        Map<String, Integer> stockMap = getStock(runner);
+        Map<String, Integer> orderMap = getOrder(runner);
+        String updateSql = "UPDATE b_goods_stock SET muser='xiaqi', mtime=NOW(), goods_count=? WHERE goods_id=?";
+        for (String goodsId : stockMap.keySet()) {
+            Integer orderCount = orderMap.get(goodsId);
+            if (orderCount == null || orderCount == 0) {
+                continue;
+            }
+            Integer oldCount = stockMap.get(goodsId);
+            Integer newCount = oldCount - orderCount;
+            runner.insert(sql, goodsId, oldCount, newCount, orderCount, "22");
+            runner.update(updateSql, newCount, goodsId);
+        }
     }
     
     private Map<String, Integer> getOrder(SqlRunner runner) throws SQLException {
@@ -181,7 +244,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         String logRootPath = new File("logs").getCanonicalPath();
         File logFile = new File(logRootPath, sqlLogFile);
         PrintWriter writer = new PrintWriter(new FileWriter(logFile), true);
-
+        List<String> failList = new ArrayList<>();
         for (String stationId : stationIds) {
             if (ExecuteRunSqlResult.getExecuteResult(stationId) != null && ExecuteRunSqlResult.getExecuteResult(stationId)) {
                 writer.println("-----------------" + stationId + "之前已执行成功，不再重复执行-----------------");
@@ -209,7 +272,6 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
                 // writer.println("-----------------" + stationId + "执行开始-----------------");
                 runner.runScript(new InputStreamReader(sqlResource.getInputStream(), "UTF-8"));
                 writer.println("-----------------" + stationId + "执行完成-----------------");
-                ExecuteRunSqlResult.setExecuteResult(stationId, true);
             } catch (Exception e) {
                 System.out.println("-----------------" + stationId + "执行失败-----------------");
                 writer.println("-----------------" + stationId + "执行失败-----------------");
@@ -218,7 +280,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
                 if (connection != null) {
                     connection.rollback();
                 }
-                ExecuteRunSqlResult.setExecuteResult(stationId, false);
+                failList.add("\"" + stationId + "\"");
             } finally {
                 // 释放链接，不释放会导致数据库链接一直被占用，后续的请求无法获取
                 if (runner != null) {
@@ -226,6 +288,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
                 }
             }
         }
+        System.out.println("不成功站点："+ failList);
         DynamicDataSource.setDataSourceKey(Constants.DEVELOP_STATION_ID);
         writer.close();
     }
