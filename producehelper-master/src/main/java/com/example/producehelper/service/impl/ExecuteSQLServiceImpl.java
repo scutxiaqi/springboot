@@ -69,17 +69,19 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         for (StationDataSource stationDataSource : stationDataSource) {
             stationIds.add(stationDataSource.getStationId());
         }
-        executeSql(sql, stationIds);
+        myExecuteSql(sql, stationIds);
     }
 
     public void myRunSql(String sql, String[] stationIds) throws Exception{
-        executeSql(sql, Arrays.asList(stationIds));
+        myExecuteSql(sql, Arrays.asList(stationIds));
     }
     
-    private void executeSql(String sql, Collection<String> stationIds) throws Exception {
+    private void myExecuteSql(String sql, Collection<String> stationIds) throws Exception {
         Set<String> result = new HashSet<String>();
+        List<String> noDataList = new ArrayList<String>();
         List<String> failList = new ArrayList<String>();
-        Map<String, BigDecimal> map = getPrice();
+        List<String> successList = new ArrayList<String>();
+        // Map<String, BigDecimal> map = getPrice();
         for (String item : stationIds) {
             DynamicDataSource.setDataSourceKey(item);
             // 获取数据库链接
@@ -88,9 +90,21 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
             try {
                 connection = dynamicDataSource.getConnection();
                 runner = new SqlRunner(connection);
-                exe1019(runner);
+                Map<String, Object> map = runner.selectOne(sql);
+                if (map == null || map.isEmpty()) {
+                    noDataList.add(item);
+                } else {
+                    String str = (String) map.get("DEFVALUE");
+                    if ("1".equals(str)) {
+                        successList.add(item);
+                    }
+                    if ("0".equals(str)) {
+                        failList.add(item);
+                    }
+                }
             } catch (Exception e) {
                 e.printStackTrace();
+                System.out.println("发生异常站点：" + item);
                 if (connection != null) {
                     connection.rollback();
                 }
@@ -99,11 +113,19 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
                 runner.closeConnection();
             }
         }
+        System.out.println("没数据站点：" + noDataList);
         System.out.println("失败站点：" + failList);
-        System.out.println(result);
-        System.out.println(result.size());
+        System.out.println("成功站点数量：" + successList.size());
     }
     
+    
+    
+    /**
+     * 数据订正移动平均成本价
+     * @param runner
+     * @param priceMap
+     * @throws SQLException
+     */
     private void ddd(SqlRunner runner, Map<String, BigDecimal> priceMap) throws SQLException {
         String sql = "SELECT goods_id FROM b_goods_stock_daily_statistics WHERE transfer_avg_price=0 AND statistics_date = (SELECT max(statistics_date) FROM b_goods_stock_daily_statistics)";
         List<Map<String, Object>> list = runner.selectAll(sql);
@@ -135,6 +157,11 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         return map;
     }
     
+    /**
+     * 站点切换人工变更库存
+     * @param runner
+     * @throws SQLException
+     */
     private void exe1019(SqlRunner runner) throws SQLException {
         String sql = "INSERT INTO b_goods_stock_record(ctime,mtime,cuser,muser,goods_id,goods_count_old,goods_count_now,stock_record_count,stock_record_type,employee_id,remark)\n"
                 + " VALUES (NOW(), NOW(), 'xiaqi', 'xiaqi', ?, ?, ?, ?, ?, 'xiaqi', '站点非能切换')";

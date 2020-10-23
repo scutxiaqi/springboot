@@ -5,6 +5,8 @@ import com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceBuilder;
 import com.example.producehelper.dataSource.DynamicDataSource;
 import com.example.producehelper.model.StationDataSource;
 import com.example.producehelper.util.FileUtils;
+
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -38,7 +40,7 @@ public class DynamicDataSourceConfig {
         Set<StationDataSource> stationDataSourceSet = new LinkedHashSet<>(0);
 
         for (StationDataSource stationDataSource : stationDataSourceList) {
-            if ("N".equals(stationDataSource.getIsActive())) {
+            if (StringUtils.trimToEmpty(stationDataSource.getIsActive()).equals("N")) {
                 continue;
             }
             stationDataSourceSet.add(stationDataSource);
