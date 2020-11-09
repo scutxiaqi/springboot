@@ -13,13 +13,18 @@ import com.example.producehelper.service.inf.IExecuteSQLService;
 public class SQLTest {
     @Autowired
     private IExecuteSQLService service;
-    String sql = "";
+    String sql = "SELECT defvalue FROM `s_config` WHERE varname='store_state'";
 
-    private String[] stationIds = { "AEE003" };
+    private String[] stationIds = { "3308A01" };
 
-    @Test
+    //@Test
     public void myTest() throws Exception {
-        service.myRunSql(sql, stationIds);
+        //service.myRunSql(sql);
+    }
+    
+    @Test
+    public void test() throws Exception {
+        service.runSql();
     }
 
 }

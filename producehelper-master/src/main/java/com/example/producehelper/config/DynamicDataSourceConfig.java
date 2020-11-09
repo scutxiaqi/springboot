@@ -1,10 +1,16 @@
 package com.example.producehelper.config;
 
-import com.alibaba.druid.pool.DruidDataSource;
-import com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceBuilder;
-import com.example.producehelper.dataSource.DynamicDataSource;
-import com.example.producehelper.model.StationDataSource;
-import com.example.producehelper.util.FileUtils;
+import java.io.File;
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.sql.DataSource;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -13,13 +19,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import javax.sql.DataSource;
-import java.text.MessageFormat;
-import java.util.*;
+import com.alibaba.druid.pool.DruidDataSource;
+import com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceBuilder;
+import com.example.producehelper.dataSource.DynamicDataSource;
+import com.example.producehelper.model.StationDataSource;
+import com.example.producehelper.util.FileUtils;
 
 @Configuration
 public class DynamicDataSourceConfig {
@@ -30,10 +37,10 @@ public class DynamicDataSourceConfig {
 
     @Bean("stations")
     public Set<StationDataSource> initStations() {
-        ClassPathResource classPathResource = new ClassPathResource(dataSourceFile);
+        String file = "C:\\MyFiles\\work\\springboot\\producehelper-master\\src\\main\\resources\\config\\stations.xlsx";
         List<StationDataSource> stationDataSourceList = new ArrayList<>(0);
         try {
-            stationDataSourceList = FileUtils.readFromExcel(classPathResource.getFile(), StationDataSource.class);
+            stationDataSourceList = FileUtils.readFromExcel(new File(file), StationDataSource.class);
         } catch (Exception e) {
             e.printStackTrace();
         }

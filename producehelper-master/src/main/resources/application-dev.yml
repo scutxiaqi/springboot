@@ -65,4 +65,4 @@ logging:
 
 file:
   sqlLogFile: runSql.log
-  dataSourceFile: config/上线站点信息.xlsx
+  dataSourceFile: config/stations.xlsx
