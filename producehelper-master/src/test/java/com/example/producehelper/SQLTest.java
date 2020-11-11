@@ -15,16 +15,16 @@ public class SQLTest {
     private IExecuteSQLService service;
     String sql = "SELECT defvalue FROM `s_config` WHERE varname='store_state'";
 
-    private String[] stationIds = { "3308A01" };
+    private String[] stationIds = { "AL4002", "AHE002", "ALF001", "AJ6002" };
+
+    @Test
+    public void myTest() throws Exception {
+        service.myRunSql(sql);
+    }
 
     //@Test
-    public void myTest() throws Exception {
-        //service.myRunSql(sql);
-    }
-    
-    @Test
     public void test() throws Exception {
-        service.runSql();
+        //service.runSql(stationIds);
     }
 
 }

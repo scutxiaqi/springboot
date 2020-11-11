@@ -37,7 +37,7 @@ public class DynamicDataSourceConfig {
 
     @Bean("stations")
     public Set<StationDataSource> initStations() {
-        String file = "C:\\MyFiles\\work\\springboot\\producehelper-master\\src\\main\\resources\\config\\stations.xlsx";
+        String file = "C:\\MyFiles\\work\\springboot\\producehelper-master\\src\\main\\resources\\config\\stations2.xlsx";
         List<StationDataSource> stationDataSourceList = new ArrayList<>(0);
         try {
             stationDataSourceList = FileUtils.readFromExcel(new File(file), StationDataSource.class);

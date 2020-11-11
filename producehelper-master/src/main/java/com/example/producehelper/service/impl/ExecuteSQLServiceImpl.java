@@ -79,7 +79,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
 
     private void myExecuteSql(String sql, Collection<String> stationIds) throws Exception {
         Set<String> result = new HashSet<String>();
-        List<String> noDataList = new ArrayList<String>();
+        List<String> myList = new ArrayList<String>();
         List<String> failList = new ArrayList<String>(); // 失败站点
         List<String> successList = new ArrayList<String>(); // 执行成功站点
         Map<String, List<String>> map = new HashMap<String, List<String>>();
@@ -90,11 +90,13 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
             try {
                 connection = dynamicDataSource.getConnection(); // 获取数据库链接
                 runner = new SqlRunner(connection);
-                map.put(stationId, hahaha(stationId, runner));
+                if(www(stationId, runner)) {
+                    myList.add(stationId);
+                }
                 successList.add(stationId);
             } catch (Exception e) {
                 e.printStackTrace();
-                System.out.println("发生异常站点：" + stationId);
+                //System.out.println("发生异常站点：" + stationId);
                 if (connection != null) {
                     connection.rollback();
                 }
@@ -103,12 +105,36 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
                 runner.closeConnection();
             }
         }
-        printSql(map);
-        // System.out.println("没数据站点：" + noDataList);
+        //printSql(map);
+        System.out.println("没数据站点：" + myList);
         System.out.println("失败站点：" + failList);
         System.out.println("成功站点数量：" + successList.size());
     }
+    
+    /**
+     * 检查便利店状态
+     * 
+     * @param stationId
+     * @param runner
+     * @return
+     * @throws SQLException
+     */
+    private boolean www(String stationId, SqlRunner runner) throws SQLException {
+        String sql = "SELECT defvalue FROM `s_config` WHERE varname='store_state'";
+        Map<String, Object> map = runner.selectOne(sql);
+        String defvalue = (String) map.get("DEFVALUE");
+        if (!"1".equals(defvalue)) {
+            return true;
+        }
+        return false;
+    }
 
+    /**
+     * 输出sql
+     * 
+     * @param map
+     * @throws IOException
+     */
     private void printSql(Map<String, List<String>> map) throws IOException {
         File file = new File("C:\\Users\\123456\\Desktop\\goods.sql");
         // %s是字符串类型占位符
