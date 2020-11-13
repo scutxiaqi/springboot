@@ -243,20 +243,16 @@
             <artifactId>barcode4j</artifactId>
             <version>2.1</version>
         </dependency>
-
-        <!--		<dependency>
-                    <groupId>org.jbarcode</groupId>
-                    <artifactId>JBarcode</artifactId>
-                    <version>0.2.8</version>
-                    <scope>system</scope>
-                    <systemPath>D:\download\jbarcode-0.2.8.jar</systemPath>
-
-                </dependency>-->
         <dependency>
             <groupId>org.jbarcode</groupId>
             <artifactId>jbarcode</artifactId>
             <version>20200520</version>
         </dependency>
+        <dependency>
+			<groupId>com.jcraft</groupId>
+			<artifactId>jsch</artifactId>
+			<version>0.1.55</version>
+		</dependency>
     </dependencies>
 
     <build>

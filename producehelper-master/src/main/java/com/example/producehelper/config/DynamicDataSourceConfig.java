@@ -9,6 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
 
@@ -54,6 +55,11 @@ public class DynamicDataSourceConfig {
         }
 
         return stationDataSourceSet;
+    }
+
+    @Bean("stationMap")
+    public Map<String, StationDataSource> initStationMap(@Qualifier("stations") Set<StationDataSource> stations) {
+        return stations.stream().collect(Collectors.toMap(StationDataSource::getStationId, stationDataSource -> stationDataSource));
     }
 
     @Bean(name = "master")
