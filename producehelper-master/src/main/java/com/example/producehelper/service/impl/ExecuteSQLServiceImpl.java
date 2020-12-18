@@ -82,7 +82,6 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         List<String> myList = new ArrayList<String>();
         List<String> failList = new ArrayList<String>(); // 失败站点
         List<String> successList = new ArrayList<String>(); // 执行成功站点
-        Map<String, List<String>> map = new HashMap<String, List<String>>();
         for (String stationId : stationIds) {
             DynamicDataSource.setDataSourceKey(stationId);
             Connection connection = null;
@@ -90,13 +89,12 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
             try {
                 connection = dynamicDataSource.getConnection(); // 获取数据库链接
                 runner = new SqlRunner(connection);
-                if(www(stationId, runner)) {
-                    myList.add(stationId);
-                }
+                exe1019(runner);
+                //runner.selectOne(sql);
                 successList.add(stationId);
             } catch (Exception e) {
+                System.out.println("发生异常站点：" + stationId);
                 e.printStackTrace();
-                //System.out.println("发生异常站点：" + stationId);
                 if (connection != null) {
                     connection.rollback();
                 }
@@ -105,30 +103,46 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
                 runner.closeConnection();
             }
         }
-        //printSql(map);
         System.out.println("没数据站点：" + myList);
         System.out.println("失败站点：" + failList);
-        System.out.println("成功站点数量：" + successList.size());
+        System.out.println("处理成功站点：" + successList);
+        //System.out.println("有数据站点：" + result.size());
     }
     
     /**
-     * 检查便利店状态
-     * 
+     * 检查站点非能切换后还可以改库存的站点
      * @param stationId
      * @param runner
      * @return
      * @throws SQLException
      */
-    private boolean www(String stationId, SqlRunner runner) throws SQLException {
-        String sql = "SELECT defvalue FROM `s_config` WHERE varname='store_state'";
-        Map<String, Object> map = runner.selectOne(sql);
-        String defvalue = (String) map.get("DEFVALUE");
-        if (!"1".equals(defvalue)) {
-            return true;
-        }
+    private boolean mmmm(String stationId, SqlRunner runner) throws SQLException {
+        //String sql = "SELECT COUNT(*) AS num FROM b_goods_stock_record WHERE remark='站点非能切换'";
+        //Map<String, Object> map = runner.selectOne(sql);
+        //long num = (long) map.get("NUM");
+        //if(num > 0) {
+        String  sql = "SELECT COUNT(*) AS num FROM s_config WHERE varname='is_update_stock' AND defvalue='1'";
+            Map<String, Object>  map = runner.selectOne(sql);
+            long num = (long) map.get("NUM");
+            if(num > 0) {
+                return true;
+            }
+        //}
         return false;
     }
-
+    
+    /**
+     * 商品变价数据订正
+     * 
+     * @param stationId
+     * @param runner
+     * @throws SQLException
+     */
+    private void priceChange(String stationId, SqlRunner runner) throws SQLException {
+        String sql = "UPDATE b_goods_price_change SET muser='xiaqi', mtime=NOW(), original_price=70 WHERE goods_id='6901028223980'";
+        runner.update(sql);
+    }
+    
     /**
      * 输出sql
      * 
@@ -217,7 +231,15 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         String sql = "INSERT INTO b_goods_stock_record(ctime,mtime,cuser,muser,goods_id,goods_count_old,goods_count_now,stock_record_count,stock_record_type,employee_id,remark)\n"
                 + " VALUES (NOW(), NOW(), 'xiaqi', 'xiaqi', ?, ?, ?, ?, ?, 'xiaqi', '站点非能切换')";
         clear(runner, sql);
-        // sale(runner, sql);
+        sale(runner, sql);
+    }
+
+    /**
+     * 不能修改库存
+     */
+    private void updateStockState(SqlRunner runner) throws SQLException {
+        String sql = "UPDATE s_config SET mtime=NOW(), defvalue='0' WHERE varname='is_update_stock'";
+        runner.update(sql);
     }
 
     /**
@@ -231,7 +253,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         Map<String, Integer> stockMap = getStock(runner);
         for (String goodsId : stockMap.keySet()) {
             Integer oldCount = stockMap.get(goodsId);
-            if (oldCount == 0) {
+            if (oldCount == null || oldCount == 0) {
                 continue;
             }
             runner.insert(sql, goodsId, oldCount, 0, -oldCount, "2");
@@ -265,7 +287,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
 
     private Map<String, Integer> getOrder(SqlRunner runner) throws SQLException {
         Map<String, Integer> map = new HashMap<String, Integer>();
-        String sql = "SELECT goods_id,SUM(sale_count) AS sale_count FROM c_order_goods WHERE sub_order_status in ('1','2') GROUP BY goods_id";
+        String sql = "SELECT goods_id,SUM(sale_count) AS sale_count FROM c_order_goods WHERE sub_order_status in ('2') GROUP BY goods_id";
         List<Map<String, Object>> list = runner.selectAll(sql);
         for (Map<String, Object> item : list) {
             BigDecimal count = (BigDecimal) item.get("SALE_COUNT");
@@ -337,6 +359,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         File logFile = new File(logRootPath, sqlLogFile);
         PrintWriter writer = new PrintWriter(new FileWriter(logFile), true);
         List<String> failList = new ArrayList<>();
+        List<String> successList = new ArrayList<String>(); // 执行成功站点
         for (String stationId : stationIds) {
             if (ExecuteRunSqlResult.getExecuteResult(stationId) != null && ExecuteRunSqlResult.getExecuteResult(stationId)) {
                 writer.println("-----------------" + stationId + "之前已执行成功，不再重复执行-----------------");
@@ -364,6 +387,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
                 // writer.println("-----------------" + stationId + "执行开始-----------------");
                 runner.runScript(new InputStreamReader(sqlResource.getInputStream(), "UTF-8"));
                 writer.println("-----------------" + stationId + "执行完成-----------------");
+                successList.add(stationId);
             } catch (Exception e) {
                 System.out.println("-----------------" + stationId + "执行失败-----------------");
                 writer.println("-----------------" + stationId + "执行失败-----------------");
@@ -381,6 +405,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
             }
         }
         System.out.println("不成功站点：" + failList);
+        System.out.println("成功站点数量：" + successList.size());
         DynamicDataSource.setDataSourceKey(Constants.DEVELOP_STATION_ID);
         writer.close();
     }
