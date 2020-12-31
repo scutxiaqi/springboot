@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.apache.ibatis.jdbc.ScriptRunner;
 import org.apache.ibatis.jdbc.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,7 @@ import com.example.producehelper.model.StationSelected;
 import com.example.producehelper.model.common.Constants;
 import com.example.producehelper.model.common.ExecuteRunSqlResult;
 import com.example.producehelper.service.inf.IExecuteSQLService;
+import com.example.producehelper.util.DateUtil;
 
 import cn.afterturn.easypoi.excel.ExcelImportUtil;
 import cn.afterturn.easypoi.excel.entity.ImportParams;
@@ -82,6 +85,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         List<String> myList = new ArrayList<String>();
         List<String> failList = new ArrayList<String>(); // 失败站点
         List<String> successList = new ArrayList<String>(); // 执行成功站点
+        Map<String, String> map = new HashMap<String, String>();
         for (String stationId : stationIds) {
             DynamicDataSource.setDataSourceKey(stationId);
             Connection connection = null;
@@ -89,7 +93,7 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
             try {
                 connection = dynamicDataSource.getConnection(); // 获取数据库链接
                 runner = new SqlRunner(connection);
-                exe1019(runner);
+                zzzz(stationId, runner);
                 //runner.selectOne(sql);
                 successList.add(stationId);
             } catch (Exception e) {
@@ -106,7 +110,68 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         System.out.println("没数据站点：" + myList);
         System.out.println("失败站点：" + failList);
         System.out.println("处理成功站点：" + successList);
+        for(String stationId : map.keySet()) {
+            System.out.println(stationId + "  " + map.get(stationId));
+        }
         //System.out.println("有数据站点：" + result.size());
+    }
+    
+    private void zzzz(String stationId, SqlRunner runner) throws SQLException {
+        String sql = "INSERT INTO c_daily_shift_record(cuser, ctime, muser, mtime, settlement_date, work_shift_num, begin_shift_time, close_shift_time, daily_shift_status)"
+                + " VALUES ('xiaqi', NOW(), 'xiaqi', NOW(), ?, '0', NOW(), NOW(), '2')";
+        Date date = new Date();
+        while(true) {
+            String latestDate = DateUtil.parseDateToStr(date, DateUtil.DATE_FORMAT_YYYY_MM_DD);
+            runner.insert(sql, latestDate);
+            date = DateUtils.addDays(date, -1);
+        }
+    }
+    
+    /**
+     * 回滚收货单, 修改库存
+     * @param stationId
+     * @param runner
+     * @throws SQLException
+     */
+    private void callbackReceiveBill(String stationId, SqlRunner runner) throws SQLException {
+        //String sql = "SELECT goods_id,stock_record_count FROM b_goods_stock_record WHERE ctime LIKE '2020-12-21 15:32%'";
+        String sql = "SELECT goods_id,stock_record_count FROM b_goods_stock_record WHERE remark='申请退货,冻结库存' AND ctime='2020-12-22 16:50:52'";
+        List<Map<String, Object>> list = runner.selectAll(sql);
+        for (Map<String, Object> map : list) {
+            String goodsId = (String) map.get("GOODS_ID");
+            int num = (int) map.get("STOCK_RECORD_COUNT");
+            int stock = getStock(runner, goodsId);
+            int newStock = stock + num;
+            sql = "INSERT INTO b_goods_stock_record(ctime,mtime,cuser,muser,goods_id,goods_count_old,goods_count_now,stock_record_count,stock_record_type,employee_id,remark)\n"
+                    + " VALUES (NOW(), NOW(), 'xiaqi', 'xiaqi', ?, ?, ?, ?, ?, 'xiaqi', '回滚退货单')";
+            runner.insert(sql, goodsId, stock, newStock, num, "2");
+            sql = "UPDATE b_goods_stock SET muser='xiaqi', mtime=NOW(), goods_count=? WHERE goods_id=?";
+            runner.update(sql, newStock, goodsId);
+        }
+    }
+
+    /**
+     * 获取库存
+     * 
+     * @param runner
+     * @param goodsId
+     * @return
+     * @throws SQLException
+     */
+    private int getStock(SqlRunner runner, String goodsId) throws SQLException {
+        String sql = "select goods_count from b_goods_stock WHERE goods_id=?";
+        Map<String, Object> map = runner.selectOne(sql, goodsId);
+        int num = (int) map.get("GOODS_COUNT");
+        return num;
+    }
+
+    private String gggg(String stationId, SqlRunner runner) throws SQLException {
+        String  sql = "SELECT LEFT(staff_shift_id,8) as staff FROM c_orders WHERE order_status='2' GROUP BY LEFT(staff_shift_id,8) ORDER BY LEFT(staff_shift_id,8) DESC LIMIT 1";
+        Map<String, Object>  map = runner.selectOne(sql);
+        if(map == null) {
+            return null;
+        }
+        return (String) map.get("STAFF");
     }
     
     /**

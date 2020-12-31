@@ -15,7 +15,7 @@ public class SQLTest {
     private IExecuteSQLService service;
     String sql = "SELECT defvalue FROM s_config WHERE varname='store_state'";
 //有数据站点：[AJ6001, AH4002, AH3002, AF4001]
-    private String[] stationIds = { "AK4003" };
+    private String[] stationIds = { "AH10022" };
 
     @Test
     public void myTest() throws Exception {
