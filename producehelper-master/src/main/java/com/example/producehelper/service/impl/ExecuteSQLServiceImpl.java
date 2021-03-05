@@ -93,12 +93,11 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
             try {
                 connection = dynamicDataSource.getConnection(); // 获取数据库链接
                 runner = new SqlRunner(connection);
-                zzzz(stationId, runner);
-                //runner.selectOne(sql);
+                runner.selectOne(sql);
                 successList.add(stationId);
             } catch (Exception e) {
                 System.out.println("发生异常站点：" + stationId);
-                e.printStackTrace();
+                //e.printStackTrace();
                 if (connection != null) {
                     connection.rollback();
                 }
@@ -109,11 +108,41 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         }
         System.out.println("没数据站点：" + myList);
         System.out.println("失败站点：" + failList);
-        System.out.println("处理成功站点：" + successList);
+        System.out.println("处理成功站点：" + successList.size());
         for(String stationId : map.keySet()) {
             System.out.println(stationId + "  " + map.get(stationId));
         }
         //System.out.println("有数据站点：" + result.size());
+    }
+    
+    private void updateStockRecord(String stationId, SqlRunner runner) throws SQLException {
+        String sql = "select count(*) AS colNum from information_schema.columns where table_name = 'b_goods_stock_record' and column_name = 'sync_unique_index'";
+        Map<String, Object> map = runner.selectOne(sql);
+        long num = (long) map.get("COLNUM");
+        if(num == 0) {
+            sql = "ALTER TABLE b_goods_stock_record ADD COLUMN sync_unique_index timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT '高精时间戳,大数据同步用唯一索引'";
+            runner.update(sql);
+            sql = "SELECT pkno FROM b_goods_stock_record ORDER BY pkno";
+            List<Map<String, Object>> list = runner.selectAll(sql);
+            for (Map<String, Object> item : list) {
+                Object pkno = item.get("PKNO");
+                String time = "2021-03-04 10:00:00.";
+                String timestamp = time + pkno;
+                sql = "UPDATE b_goods_stock_record SET sync_unique_index=? WHERE pkno=?";
+                runner.update(sql, timestamp, pkno);
+            }
+        }
+    }
+    
+    /**
+     * 修改商品价格
+     * 
+     * @param stationId
+     * @param runner
+     * @throws SQLException
+     */
+    private void modifyPrice(String stationId, SqlRunner runner) throws SQLException {
+        String sql = "";
     }
     
     private void zzzz(String stationId, SqlRunner runner) throws SQLException {

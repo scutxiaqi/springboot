@@ -14,17 +14,17 @@ public class SQLTest {
     @Autowired
     private IExecuteSQLService service;
     String sql = "SELECT defvalue FROM s_config WHERE varname='store_state'";
-//有数据站点：[AJ6001, AH4002, AH3002, AF4001]
-    private String[] stationIds = { "AH10022" };
+//团购增加字段失败站点："AC3001", "AC8002", "AC1002", "AC1003"
+    private String[] stationIds = { "AJL001", "AY3001"};
 
     @Test
     public void myTest() throws Exception {
         service.myRunSql(sql, stationIds);
     }
 
-    //@Test
+    // @Test
     public void test() throws Exception {
-        //service.runSql(stationIds);
+        // service.runSql(stationIds);
     }
 
 }

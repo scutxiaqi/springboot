@@ -1,1 +1,1 @@
-UPDATE s_config SET mtime=NOW(), defvalue='0' WHERE varname='is_update_stock';
+ALTER TABLE b_goods_group ADD COLUMN approve_time datetime DEFAULT NULL COMMENT '审批时间' AFTER approve_state;
