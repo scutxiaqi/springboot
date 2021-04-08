@@ -109,12 +109,12 @@ public class ExecuteSQLServiceImpl implements IExecuteSQLService {
         System.out.println("没数据站点：" + myList);
         System.out.println("失败站点：" + failList);
         System.out.println("处理成功站点：" + successList.size());
-        for(String stationId : map.keySet()) {
+        for (String stationId : map.keySet()) {
             System.out.println(stationId + "  " + map.get(stationId));
         }
-        //System.out.println("有数据站点：" + result.size());
+        // System.out.println("有数据站点：" + result.size());
     }
-    
+
     private void updateStockRecord(String stationId, SqlRunner runner) throws SQLException {
         String sql = "select count(*) AS colNum from information_schema.columns where table_name = 'b_goods_stock_record' and column_name = 'sync_unique_index'";
         Map<String, Object> map = runner.selectOne(sql);
